@@ -17,7 +17,7 @@ Build a portable binary for Windows systems using Vercel's [pkg](https://www.npm
 Install this package and save to `devDependencies` using your package manager of choice.
 
 ```sh
- npm i -D @angablue/exe
+ npm i -D @hearhellacopters/exe
 ```
 
 ## Basic Usage
