@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from 'fs';
+import type { WriteFileOptions } from 'fs';
 import { exec } from '@yao-pkg/pkg';
 import { type ResEdit, load } from 'resedit/cjs';
 import { VersionStringValues } from 'resedit/dist/resource';
@@ -9,6 +10,44 @@ const language = {
     lang: 1033, // en-us
     codepage: 1200 // UTF-16
 };
+
+/**
+ * Waits for resourcse to be free
+ * @param {string} filePath  Path to file
+ * @param {Buffer} data data to write
+ * @param {WriteFileOptions?} options WriteFileOptions
+ * @param {number} maxRetries max retries
+ * @param {number} delayMs delays in mili-seconds
+ */
+function writeFileWithRetry(
+    filePath: string = '',
+    data: Buffer = Buffer.alloc(1),
+    options: WriteFileOptions | null = {},
+    maxRetries: number = 5,
+    delayMs: number = 1000
+) {
+    let attempts = 0;
+
+    while (attempts < maxRetries) {
+        try {
+            writeFileSync(filePath, data, options);
+            // console.log(`File written successfully after ${attempts + 1} attempt(s).`);
+            return;
+        } catch (err) {
+            // @ts-ignore
+            if (err.code === 'EBUSY') {
+                attempts++;
+                console.log(`Build file is EBUSY after ${attempts} failed attempt. Retrying in ${delayMs}ms...`);
+                Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
+            } else {
+                console.error('Error writing file:', err);
+                throw err; // Rethrow for non-EBUSY errors
+            }
+        }
+    }
+
+    throw new Error(`Failed to write file after ${maxRetries} attempts.`);
+}
 
 /**
  * Build an executable
@@ -70,7 +109,7 @@ async function exe(options: Options): Promise<void> {
 
     // Regenerate and write to .exe
     res.outputResource(executable);
-    writeFileSync(options.out, Buffer.from(executable.generate()));
+    writeFileWithRetry(options.out, Buffer.from(executable.generate()));
 }
 
 export = exe;
